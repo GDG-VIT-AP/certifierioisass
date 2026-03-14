@@ -9,9 +9,9 @@
   margin: 0;
   padding: 0;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: light;
+  color: #1f2937;
+  background-color: #f8f9fa;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -24,4 +24,29 @@ body {
   display: block;
   height: 100%;
   width: 100%;
+  scroll-behavior: smooth;
+}
+
+.gdg-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #9bb6f5 #eef2ff;
+}
+
+.gdg-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.gdg-scroll::-webkit-scrollbar-track {
+  background: #eef2ff;
+  border-radius: 9999px;
+}
+
+.gdg-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4285f4, #34a853);
+  border-radius: 9999px;
+}
+
+.gdg-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #2b6ad9, #2b8a44);
 }
