@@ -1,6 +1,7 @@
 ﻿import React from "react";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
+import { generateCertificate, sendEmails, uploadToCloudinary } from "../lib/api";
 
 type Point = { x: number; y: number };
 type DragPointKey = "name" | "cert_id" | "cert_qr";
@@ -97,6 +98,11 @@ export default function GenerateCertificatePage() {
     const [draggingPoint, setDraggingPoint] = React.useState<DragPointKey | null>(null);
     const [viewportSize, setViewportSize] = React.useState({ width: 0, height: 0 });
     const [qrPreviewSrc, setQrPreviewSrc] = React.useState("");
+    const [generating, setGenerating] = React.useState(false);
+    const [generatedRecords, setGeneratedRecords] = React.useState<{ name: string; cert_id: string; email: string }[]>([]);
+    const [sendingEmails, setSendingEmails] = React.useState(false);
+    const [emailProgress, setEmailProgress] = React.useState({ sent: 0, total: 0 });
+    const [statusMessage, setStatusMessage] = React.useState("");
 
     React.useEffect(() => {
         const viewport = previewViewportRef.current;
@@ -182,29 +188,31 @@ export default function GenerateCertificatePage() {
         reader.readAsArrayBuffer(file);
     };
 
-    const setImage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const setImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (loadEvent) => {
-            const imageBase64 = loadEvent.target?.result as string;
-            const image = new Image();
+        const localUrl = URL.createObjectURL(file);
+        const image = new Image();
 
-            image.onload = () => {
-                const canvas = canvasRef.current;
-                if (!canvas) return;
+        image.onload = async () => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
 
-                const context = canvas.getContext("2d");
-                if (!context) return;
+            const context = canvas.getContext("2d");
+            if (!context) return;
 
-                canvas.width = image.naturalWidth;
-                canvas.height = image.naturalHeight;
-                context.drawImage(image, 0, 0);
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            context.drawImage(image, 0, 0);
+
+            setStatusMessage("Uploading image to Cloudinary...");
+            try {
+                const cloudinaryUrl = await uploadToCloudinary(file);
 
                 setTemplate((previous) => ({
                     ...previous,
-                    image: imageBase64,
+                    image: cloudinaryUrl,
                     image_size: {
                         width: image.naturalWidth,
                         height: image.naturalHeight,
@@ -222,12 +230,15 @@ export default function GenerateCertificatePage() {
                         coords: { x: image.naturalWidth * 0.82, y: image.naturalHeight * 0.75 },
                     },
                 }));
-            };
+                setStatusMessage("Image uploaded successfully.");
+            } catch {
+                setStatusMessage("Image upload failed. Try again.");
+            }
 
-            image.src = imageBase64;
+            URL.revokeObjectURL(localUrl);
         };
 
-        reader.readAsDataURL(file);
+        image.src = localUrl;
     };
 
     React.useEffect(() => {
@@ -306,6 +317,67 @@ export default function GenerateCertificatePage() {
             .then(setQrPreviewSrc)
             .catch(() => setQrPreviewSrc(""));
     }, [template.cert_qr.color, template.event_name, template.participants]);
+
+    const CHUNK_SIZE = 48;
+    const CHUNK_DELAY = 2500;
+
+    const handleGenerate = async () => {
+        if (!template.image || !template.event_name) {
+            setStatusMessage("Upload an image and fill event name first.");
+            return;
+        }
+
+        setGenerating(true);
+        setStatusMessage("Generating certificates...");
+        try {
+            const result = await generateCertificate(template) as { records: { name: string; cert_id: string; email: string }[]; message: string };
+            setGeneratedRecords(result.records);
+            setStatusMessage(result.message);
+        } catch {
+            setStatusMessage("Failed to generate certificates.");
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    const handleSendEmails = async () => {
+        if (!generatedRecords.length) return;
+
+        const withEmail = generatedRecords.filter(r => r.email);
+        if (!withEmail.length) {
+            setStatusMessage("No participants have email addresses.");
+            return;
+        }
+
+        setSendingEmails(true);
+        setEmailProgress({ sent: 0, total: withEmail.length });
+
+        const certBaseUrl = import.meta.env.VITE_CERT_VERIFY_BASE_URL || window.location.origin;
+        let totalSent = 0;
+
+        for (let i = 0; i < withEmail.length; i += CHUNK_SIZE) {
+            const chunk = withEmail.slice(i, i + CHUNK_SIZE);
+            try {
+                const result = await sendEmails({
+                    records: chunk,
+                    event_name: template.event_name,
+                    cert_base_url: certBaseUrl,
+                });
+                totalSent += result.sent;
+                setEmailProgress({ sent: totalSent, total: withEmail.length });
+            } catch {
+                setStatusMessage(`Email sending failed at ${totalSent}/${withEmail.length}`);
+                break;
+            }
+
+            if (i + CHUNK_SIZE < withEmail.length) {
+                await new Promise(resolve => setTimeout(resolve, CHUNK_DELAY));
+            }
+        }
+
+        setStatusMessage(`Sent ${totalSent}/${withEmail.length} emails.`);
+        setSendingEmails(false);
+    };
 
     return (
         <div className="flex h-dvh w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,#e8f0fe_0%,#f8f9fa_34%,#f8f9fa_100%)] text-slate-800 antialiased">
@@ -418,6 +490,36 @@ export default function GenerateCertificatePage() {
                                 <input className="h-9 w-12 rounded-md border border-slate-300" type="color" value={template.cert_qr.color} onChange={(event) => updateQrLayer({ color: event.target.value })} />
                             </CompactField>
                         </div>
+                    </Section>
+
+                    <Section title="Actions">
+                        <button
+                            type="button"
+                            disabled={generating || !template.image || !template.event_name}
+                            onClick={handleGenerate}
+                            className="w-full rounded-md bg-[#4285F4] px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#3367D6] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {generating ? "Generating..." : "Generate Certificates"}
+                        </button>
+
+                        {generatedRecords.length > 0 && (
+                            <button
+                                type="button"
+                                disabled={sendingEmails}
+                                onClick={handleSendEmails}
+                                className="w-full rounded-md bg-[#34A853] px-3 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#2D9249] disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {sendingEmails
+                                    ? `Sending... ${emailProgress.sent}/${emailProgress.total}`
+                                    : `Send Emails (${generatedRecords.filter(r => r.email).length})`}
+                            </button>
+                        )}
+
+                        {statusMessage && (
+                            <p className="rounded-md bg-slate-50 px-2.5 py-2 text-[11px] text-slate-600">
+                                {statusMessage}
+                            </p>
+                        )}
                     </Section>
                 </div>
             </aside>

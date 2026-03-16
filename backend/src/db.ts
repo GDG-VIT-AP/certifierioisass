@@ -1,7 +1,8 @@
+// Prisma client with Neon serverless adapter for Cloudflare Workers (no TCP, uses HTTP/WebSocket)
 import { PrismaClient } from '@prisma/client';
-import { withAccelerate } from '@prisma/extension-accelerate';
+import { PrismaNeon } from '@prisma/adapter-neon';
 
-// Pass the accelerateUrl directly into the constructor
-export const prisma = new PrismaClient({
-    accelerateUrl: process.env.DATABASE_URL
-}).$extends(withAccelerate());
+export function createPrisma(databaseUrl: string) {
+    const adapter = new PrismaNeon({ connectionString: databaseUrl });
+    return new PrismaClient({ adapter });
+}
