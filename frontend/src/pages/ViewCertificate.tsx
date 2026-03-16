@@ -52,6 +52,10 @@ type BackendCertificate = {
   };
   event_name?: string;
   type?: string;
+  participant?: {
+    name?: string;
+    cert_id?: string;
+  };
   participants?: Participant[];
   participant_name?: {
     name?: string;
@@ -118,20 +122,27 @@ const normalizeCertificate = (rawData: unknown): CertificateResponse => {
       ? data.image_size.height
       : 800;
 
+  const backendCertificateId =
+    data.certificate_id ?? data.id ?? data.participant?.cert_id;
+
   const participantName: Participant = data.participant_name
     ? {
         name: data.participant_name.name ?? "Participant",
         reg_no: data.participant_name.reg_no ?? "",
       }
-    : data.participants && data.participants.length > 0
+    : data.participant
       ? {
-          name: data.participants[0].name ?? "Participant",
-          email: data.participants[0].email ?? "",
+          name: data.participant.name ?? "Participant",
         }
-      : {
-          name: "Participant",
-          reg_no: "",
-        };
+      : data.participants && data.participants.length > 0
+        ? {
+            name: data.participants[0].name ?? "Participant",
+            email: data.participants[0].email ?? "",
+          }
+        : {
+            name: "Participant",
+            reg_no: "",
+          };
 
   return {
     image: toDataUrl(data.image ?? ""),
@@ -149,7 +160,7 @@ const normalizeCertificate = (rawData: unknown): CertificateResponse => {
       size: data.cert_qr?.size ?? 96,
       color: data.cert_qr?.color ?? "#000000",
     },
-    certificate_id: data.certificate_id,
+    certificate_id: backendCertificateId,
     id: data.id,
   };
 };
