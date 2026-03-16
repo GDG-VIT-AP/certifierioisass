@@ -1,0 +1,14 @@
+name = "certifier-api"
+main = "src/index.ts"
+compatibility_date = "2025-03-16"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+CERT_VIEW_BASE_URL = "https://certifier.pages.dev"
+
+# Set these as secrets via: wrangler secret put <NAME>
+# DATABASE_URL
+# GMAIL_CLIENT_ID
+# GMAIL_CLIENT_SECRET
+# GMAIL_REFRESH_TOKEN
+# GMAIL_SENDER_EMAIL
