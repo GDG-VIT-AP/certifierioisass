@@ -522,10 +522,10 @@ export default function ViewCertificate() {
           <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sticky top-8">
             {/* Four Dots */}
             <div className="flex gap-2 mb-4">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-400"></span>
-              <span className="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
-              <span className="w-2.5 h-2.5 rounded-full bg-green-400"></span>
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-green-600"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
             </div>
 
             {/* Top Image */}
