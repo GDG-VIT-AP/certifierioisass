@@ -11,8 +11,7 @@ type Point = { x: number; y: number };
 
 type Participant = {
   name: string;
-  email?: string;
-  reg_no?: string;
+  cert_id?: string;
 };
 
 type TextLayer = {
@@ -36,7 +35,7 @@ type CertificateResponse = {
   };
   event_name: string;
   type: string;
-  participant_name: Participant;
+  participant: Participant;
   name: TextLayer;
   cert_id: TextLayer;
   cert_qr: QrLayer;
@@ -55,11 +54,6 @@ type BackendCertificate = {
   participant?: {
     name?: string;
     cert_id?: string;
-  };
-  participants?: Participant[];
-  participant_name?: {
-    name?: string;
-    reg_no?: string;
   };
   name?: {
     coords?: Point;
@@ -125,24 +119,10 @@ const normalizeCertificate = (rawData: unknown): CertificateResponse => {
   const backendCertificateId =
     data.certificate_id ?? data.id ?? data.participant?.cert_id;
 
-  const participantName: Participant = data.participant_name
-    ? {
-        name: data.participant_name.name ?? "Participant",
-        reg_no: data.participant_name.reg_no ?? "",
-      }
-    : data.participant
-      ? {
-          name: data.participant.name ?? "Participant",
-        }
-      : data.participants && data.participants.length > 0
-        ? {
-            name: data.participants[0].name ?? "Participant",
-            email: data.participants[0].email ?? "",
-          }
-        : {
-            name: "Participant",
-            reg_no: "",
-          };
+  const participant: Participant = {
+    name: data.participant?.name ?? "Participant",
+    cert_id: data.participant?.cert_id
+  };
 
   return {
     image: toDataUrl(data.image ?? ""),
@@ -152,7 +132,7 @@ const normalizeCertificate = (rawData: unknown): CertificateResponse => {
     },
     event_name: data.event_name ?? "",
     type: data.type ?? "",
-    participant_name: participantName,
+    participant,
     name: normalizeTextLayer(data.name),
     cert_id: normalizeTextLayer(data.cert_id),
     cert_qr: {
@@ -175,7 +155,10 @@ const getDisplayParticipant = (
     return null;
   }
 
-  if (!participant.name && !participant.email && !participant.reg_no) {
+  if (
+    !participant.name &&
+    !participant.cert_id
+  ) {
     return null;
   }
 
@@ -364,15 +347,13 @@ export default function ViewCertificate() {
       pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
 
       const displayParticipant = getDisplayParticipant(
-        certificate?.participant_name,
+        certificate?.participant,
       );
       const certIdentifier = certificate
         ? getCertificateIdentifier(certificate, certificateId)
         : "";
       const fileId =
-        certIdentifier ||
-        displayParticipant?.reg_no ||
-        displayParticipant?.email ||
+        certIdentifier || displayParticipant?.cert_id ||
         "certificate";
 
       pdf.save(`certificate-${fileId}.pdf`);
@@ -392,7 +373,7 @@ export default function ViewCertificate() {
   }
 
   const { image_size } = certificate;
-  const participantName = getDisplayParticipant(certificate.participant_name);
+  const participantName = getDisplayParticipant(certificate.participant);
   const certIdentifier = getCertificateIdentifier(certificate, certificateId);
 
   return (
@@ -499,9 +480,7 @@ export default function ViewCertificate() {
                   color: certificate.cert_id.color,
                 }}
               >
-                {certIdentifier ||
-                  participantName?.reg_no ||
-                  participantName?.email ||
+                {certIdentifier || certificate.participant?.cert_id ||
                   "CERTIFICATE"}
               </div>
 
