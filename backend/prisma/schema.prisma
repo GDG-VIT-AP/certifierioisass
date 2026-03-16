@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Certificate {
+  id                String   @id @default(uuid())
+  cert_id           String   @unique
+  participant_name  String
+  participant_email String?
+  
+  // The Blueprint Data
+  image             String
+  image_size        Json     // Stores { width, height }
+  event_name        String
+  type              String
+  name_layer        Json     // Stores coords, font, color, etc.
+  cert_id_layer     Json
+  cert_qr_layer     Json
+
+  createdAt         DateTime @default(now())
+}
